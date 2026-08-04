@@ -9,23 +9,21 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final PageController controller = PageController();
+  final PageController _pageController = PageController();
 
-  int currentPage = 0;
+  int _currentPage = 0;
 
-  final List<Map<String, String>> pages = [
+  final List<Map<String, String>> _pages = [
     {
       "icon": "🌾",
       "title": "Fresh Produce",
       "description": "Buy directly from verified farmers across Kenya.",
     },
-
     {
       "icon": "🚜",
       "title": "Sell More",
       "description": "Farmers sell without middlemen and earn more.",
     },
-
     {
       "icon": "🚚",
       "title": "Fast Delivery",
@@ -34,119 +32,116 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _nextPage() {
+    if (_currentPage < _pages.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoginScreen(), // No const here
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          Expanded(
-            child: PageView.builder(
-              controller: controller,
-
-              itemCount: pages.length,
-
-              onPageChanged: (value) {
-                setState(() {
-                  currentPage = value;
-                });
-              },
-
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.all(30),
-
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-
-                    children: [
-                      Text(
-                        pages[index]["icon"]!,
-                        style: const TextStyle(fontSize: 100),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      Text(
-                        pages[index]["title"]!,
-
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _pages.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.all(30),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _pages[index]["icon"]!,
+                          style: const TextStyle(fontSize: 100),
                         ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      Text(
-                        pages[index]["description"]!,
-
-                        textAlign: TextAlign.center,
-
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        const SizedBox(height: 30),
+                        Text(
+                          _pages[index]["title"]!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          _pages[index]["description"]!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-
-            children: List.generate(
-              pages.length,
-
-              (index) => Container(
-                margin: const EdgeInsets.all(4),
-
-                width: currentPage == index ? 18 : 8,
-
-                height: 8,
-
-                decoration: BoxDecoration(
-                  color: currentPage == index ? Colors.green : Colors.grey,
-
-                  borderRadius: BorderRadius.circular(20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _pages.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentPage == index ? 20 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentPage == index
+                        ? Colors.green
+                        : Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 25),
+            const SizedBox(height: 30),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 25),
-
-            child: SizedBox(
-              width: double.infinity,
-
-              height: 55,
-
-              child: ElevatedButton(
-                onPressed: () {
-                  if (currentPage < 2) {
-                    controller.nextPage(
-                      duration: const Duration(milliseconds: 400),
-
-                      curve: Curves.ease,
-                    );
-                  } else {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
-                      ),
-                    );
-                  }
-                },
-
-                child: Text(currentPage == 2 ? "Get Started" : "Next"),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 25),
+              child: SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _nextPage,
+                  child: Text(
+                    _currentPage == _pages.length - 1 ? "Get Started" : "Next",
+                  ),
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 40),
-        ],
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }

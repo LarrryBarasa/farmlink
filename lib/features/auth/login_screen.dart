@@ -15,55 +15,57 @@ class LoginScreen extends StatelessWidget {
       backgroundColor: Colors.white,
 
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
 
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
 
-            children: [
-              const AppLogo(),
+              children: [
+                const AppLogo(),
 
-              const SizedBox(height: 40),
+                const SizedBox(height: 40),
 
-              AppTextField(
-                controller: emailController,
-                label: "Email or Phone",
-                icon: Icons.person,
-              ),
-
-              const SizedBox(height: 20),
-
-              AppTextField(
-                controller: passwordController,
-                label: "Password",
-                icon: Icons.lock,
-                obscureText: true,
-              ),
-
-              const SizedBox(height: 30),
-
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: () {},
-                  child: const Text("Login"),
+                AppTextField(
+                  controller: emailController,
+                  label: "Email or Phone",
+                  icon: Icons.person,
                 ),
-              ),
 
-              const SizedBox(height: 15),
+                const SizedBox(height: 20),
 
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => RegisterScreen()),
-                  );
-                },
-                child: const Text("Create Account"),
-              ),
-            ],
+                AppTextField(
+                  controller: passwordController,
+                  label: "Password",
+                  icon: Icons.lock,
+                  obscureText: true,
+                ),
+
+                const SizedBox(height: 30),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    child: const Text("Login"),
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => RegisterScreen()),
+                    );
+                  },
+                  child: const Text("Create Account"),
+                ),
+              ],
+            ),
           ),
         ),
       ),
