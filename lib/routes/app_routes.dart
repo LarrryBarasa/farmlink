@@ -9,25 +9,20 @@ import '../features/farmer/farmer_registration_screen.dart';
 import '../features/rider/rider_registration_screen.dart';
 
 class AppRoutes {
-  static const login = "/login";
-
-  static const register = "/register";
-
-  static const accountType = "/accountType";
-
-  static const consumer = "/consumer";
-
-  static const farmer = "/farmer";
-
-  static const rider = "/rider";
+  static const String login = "/login";
+  static const String register = "/register";
+  static const String accountType = "/accountType";
+  static const String consumer = "/consumer";
+  static const String farmer = "/farmer";
+  static const String rider = "/rider";
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
+        return MaterialPageRoute(builder: (_) => LoginScreen());
 
       case register:
-        return MaterialPageRoute(builder: (_) => const RegisterScreen());
+        return MaterialPageRoute(builder: (_) => RegisterScreen());
 
       case accountType:
         return MaterialPageRoute(builder: (_) => const AccountTypeScreen());
@@ -48,7 +43,7 @@ class AppRoutes {
         );
 
       default:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
+        return MaterialPageRoute(builder: (_) => LoginScreen());
     }
   }
 }

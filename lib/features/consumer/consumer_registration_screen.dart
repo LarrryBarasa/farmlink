@@ -22,84 +22,59 @@ class _ConsumerRegistrationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Consumer Registration")),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
 
-                const Icon(Icons.shopping_bag, size: 90, color: Colors.green),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
 
-                const SizedBox(height: 20),
+        child: Form(
+          key: _formKey,
 
-                const Text(
-                  "Create Consumer Account",
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+          child: Column(
+            children: [
+              TextFormField(
+                controller: fullNameController,
+                decoration: const InputDecoration(labelText: "Full Name"),
+              ),
+
+              const SizedBox(height: 20),
+
+              TextFormField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: "Phone Number"),
+              ),
+
+              const SizedBox(height: 20),
+
+              TextFormField(
+                controller: countyController,
+                decoration: const InputDecoration(labelText: "County"),
+              ),
+
+              const SizedBox(height: 20),
+
+              TextFormField(
+                controller: emailController,
+                decoration: const InputDecoration(labelText: "Email"),
+              ),
+
+              const SizedBox(height: 30),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ConsumerHomeScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text("Create Account"),
                 ),
-
-                const SizedBox(height: 30),
-
-                TextFormField(
-                  controller: fullNameController,
-                  decoration: const InputDecoration(
-                    labelText: "Full Name",
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                TextFormField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: "Phone Number",
-                    prefixIcon: Icon(Icons.phone),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                TextFormField(
-                  controller: countyController,
-                  decoration: const InputDecoration(
-                    labelText: "County",
-                    prefixIcon: Icon(Icons.location_city),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                TextFormField(
-                  controller: emailController,
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                    prefixIcon: Icon(Icons.email),
-                  ),
-                ),
-
-                const SizedBox(height: 35),
-
-                SizedBox(
-                  width: double.infinity,
-                  height: 55,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ConsumerHomeScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text("Create Account"),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

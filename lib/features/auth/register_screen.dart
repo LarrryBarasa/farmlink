@@ -5,7 +5,14 @@ import '../../core/widgets/primary_button.dart';
 import 'account_type_screen.dart';
 
 class RegisterScreen extends StatelessWidget {
-  const RegisterScreen({super.key});
+  RegisterScreen({super.key});
+
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -28,19 +35,33 @@ class RegisterScreen extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              const AppTextField(label: "Full Name", icon: Icons.person),
+              AppTextField(
+                controller: nameController,
+                label: "Full Name",
+                icon: Icons.person,
+              ),
 
               const SizedBox(height: 20),
 
-              const AppTextField(label: "Phone Number", icon: Icons.phone),
+              AppTextField(
+                controller: phoneController,
+                label: "Phone Number",
+                icon: Icons.phone,
+                keyboardType: TextInputType.phone,
+              ),
 
               const SizedBox(height: 20),
 
-              const AppTextField(label: "Email Address", icon: Icons.email),
+              AppTextField(
+                controller: emailController,
+                label: "Email Address",
+                icon: Icons.email,
+              ),
 
               const SizedBox(height: 20),
 
-              const AppTextField(
+              AppTextField(
+                controller: passwordController,
                 label: "Password",
                 icon: Icons.lock,
                 obscureText: true,
@@ -48,7 +69,8 @@ class RegisterScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              const AppTextField(
+              AppTextField(
+                controller: confirmPasswordController,
                 label: "Confirm Password",
                 icon: Icons.lock_outline,
                 obscureText: true,
@@ -62,7 +84,7 @@ class RegisterScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const AccountTypeScreen(),
+                      builder: (_) => const AccountTypeScreen(),
                     ),
                   );
                 },

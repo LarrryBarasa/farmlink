@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/widgets/category_card.dart';
+import '../../core/widgets/product_card.dart';
+import '../../core/constants/app_colors.dart';
 
 class ConsumerHomeScreen extends StatelessWidget {
   const ConsumerHomeScreen({super.key});

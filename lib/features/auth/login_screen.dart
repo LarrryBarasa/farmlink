@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/logo.dart';
 import '../../core/widgets/app_text_field.dart';
-import 'package:farmlink/features/auth/register_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+  LoginScreen({super.key});
+
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +26,16 @@ class LoginScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              const AppTextField(label: "Email or Phone", icon: Icons.person),
+              AppTextField(
+                controller: emailController,
+                label: "Email or Phone",
+                icon: Icons.person,
+              ),
 
               const SizedBox(height: 20),
 
-              const AppTextField(
+              AppTextField(
+                controller: passwordController,
                 label: "Password",
                 icon: Icons.lock,
                 obscureText: true,
@@ -50,7 +58,7 @@ class LoginScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                    MaterialPageRoute(builder: (_) => RegisterScreen()),
                   );
                 },
                 child: const Text("Create Account"),
