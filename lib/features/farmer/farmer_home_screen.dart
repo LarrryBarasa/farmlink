@@ -129,11 +129,42 @@ class FarmerHomeScreen extends StatelessWidget {
                               label: "Active",
                               value: "$activeListings",
                             ),
-                            _StatBlock(
-                              label: "Total Stock",
-                              value: "$totalStock",
-                            ),
+                            _StatBlock(label: "Stock", value: "$totalStock"),
                           ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Potential Inventory Value",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                "KES ${inventoryValue.toStringAsFixed(0)}",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
