@@ -92,7 +92,7 @@ class ProductService {
       snapshot,
     ) {
       return snapshot.docs.map((doc) {
-        return Product.fromap(doc.data(), doc.id);
+        return Product.fromMap(doc.data(), doc.id);
       }).toList();
     });
   }
