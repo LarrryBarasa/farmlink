@@ -79,6 +79,10 @@ class FarmerHomeScreen extends StatelessWidget {
                 (sum, p) => sum + p.stockQuantity,
               );
               final activeListings = products.where((p) => p.isActive).length;
+              final inventoryValue = products.fold<double>(
+                0,
+                (sum, p) => sum + (p.farmerPrice * p.stockQuantity),
+              );
 
               return ListView(
                 padding: const EdgeInsets.all(16),
