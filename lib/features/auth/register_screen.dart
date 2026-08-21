@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../core/widgets/logo.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/primary_button.dart';
+import '../../services/auth_service.dart';
 import 'account_type_screen.dart';
 
 class RegisterScreen extends StatelessWidget {
@@ -80,13 +82,38 @@ class RegisterScreen extends StatelessWidget {
 
               PrimaryButton(
                 text: "Continue",
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const AccountTypeScreen(),
-                    ),
-                  );
+                onPressed: () async {
+                  if (passwordController.text !=
+                      confirmPasswordController.text) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Passwords don't match")),
+                    );
+                    return;
+                  }
+
+                  try {
+                    final uid = await AuthService().registerWithEmail(
+                      name: nameController.text.trim(),
+                      phone: phoneController.text.trim(),
+                      email: emailController.text.trim(),
+                      password: passwordController.text,
+                    );
+
+                    if (!context.mounted) return;
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AccountTypeScreen(userId: uid),
+                      ),
+                    );
+                  } on FirebaseAuthException catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.message ?? "Registration failed"),
+                      ),
+                    );
+                  }
                 },
               ),
 

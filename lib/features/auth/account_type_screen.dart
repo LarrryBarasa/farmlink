@@ -4,7 +4,9 @@ import '../farmer/farmer_registration_screen.dart';
 import '../rider/rider_registration_screen.dart';
 
 class AccountTypeScreen extends StatelessWidget {
-  const AccountTypeScreen({super.key});
+  final String userId;
+
+  const AccountTypeScreen({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -84,15 +86,15 @@ class AccountTypeScreen extends StatelessWidget {
 
           switch (title) {
             case "Consumer":
-              screen = const ConsumerRegistrationScreen();
+              screen = ConsumerRegistrationScreen(userId: userId);
               break;
 
             case "Farmer":
-              screen = const FarmerRegistrationScreen();
+              screen = FarmerRegistrationScreen(userId: userId);
               break;
 
             case "Rider":
-              screen = const RiderRegistrationScreen();
+              screen = RiderRegistrationScreen(userId: userId);
               break;
 
             default:

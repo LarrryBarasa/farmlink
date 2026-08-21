@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/splash/splash_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/auth/account_type_screen.dart';
@@ -9,6 +10,7 @@ import '../features/farmer/farmer_registration_screen.dart';
 import '../features/rider/rider_registration_screen.dart';
 
 class AppRoutes {
+  static const String splash = "/splash";
   static const String login = "/login";
   static const String register = "/register";
   static const String accountType = "/accountType";
@@ -18,6 +20,9 @@ class AppRoutes {
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case splash:
+        return MaterialPageRoute(builder: (_) => const SplashScreen());
+
       case login:
         return MaterialPageRoute(builder: (_) => LoginScreen());
 
@@ -25,25 +30,27 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => RegisterScreen());
 
       case accountType:
-        return MaterialPageRoute(builder: (_) => const AccountTypeScreen());
+        return MaterialPageRoute(
+          builder: (_) => const AccountTypeScreen(userId: ''),
+        );
 
       case consumer:
         return MaterialPageRoute(
-          builder: (_) => const ConsumerRegistrationScreen(),
+          builder: (_) => const ConsumerRegistrationScreen(userId: ''),
         );
 
       case farmer:
         return MaterialPageRoute(
-          builder: (_) => const FarmerRegistrationScreen(),
+          builder: (_) => const FarmerRegistrationScreen(userId: ''),
         );
 
       case rider:
         return MaterialPageRoute(
-          builder: (_) => const RiderRegistrationScreen(),
+          builder: (_) => const RiderRegistrationScreen(userId: ''),
         );
 
       default:
-        return MaterialPageRoute(builder: (_) => LoginScreen());
+        return MaterialPageRoute(builder: (_) => const SplashScreen());
     }
   }
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1070017404628",
+    "project_id": "farmlink-hillary-app-b0eed",
+    "storage_bucket": "farmlink-hillary-app-b0eed.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1070017404628:android:dae0c50b0f3997a2622541",
+        "android_client_info": {
+          "package_name": "com.example.farmlink"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBX0tXKXZ5AZNDzirNyi2LRp915IfAJRYQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

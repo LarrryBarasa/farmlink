@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../core/widgets/category_card.dart';
-import '../../core/widgets/product_card.dart';
-import '../../core/constants/app_colors.dart';
+
+import '../../services/auth_service.dart';
+import '../auth/login_screen.dart';
 
 class ConsumerHomeScreen extends StatelessWidget {
   const ConsumerHomeScreen({super.key});
@@ -27,15 +27,17 @@ class ConsumerHomeScreen extends StatelessWidget {
             onPressed: () {},
             icon: const Icon(Icons.notifications_none, color: Colors.black),
           ),
+          IconButton(
+            onPressed: () => _logout(context),
+            icon: const Icon(Icons.logout, color: Colors.black),
+          ),
         ],
       ),
 
       body: Padding(
         padding: const EdgeInsets.all(20),
-
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-
           children: [
             const Text(
               "Welcome to Farmlink 🌱",
@@ -54,13 +56,9 @@ class ConsumerHomeScreen extends StatelessWidget {
             TextField(
               decoration: InputDecoration(
                 hintText: "Search products...",
-
                 prefixIcon: const Icon(Icons.search),
-
                 filled: true,
-
                 fillColor: Colors.white,
-
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
                   borderSide: BorderSide.none,
@@ -70,6 +68,18 @@ class ConsumerHomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    await AuthService().signOut();
+
+    if (!context.mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => LoginScreen()),
+      (route) => false,
     );
   }
 }
