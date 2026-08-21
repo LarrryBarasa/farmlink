@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-
 import '../../services/auth_service.dart';
 import '../../services/product_service.dart';
+import '../../services/farmer_service.dart';
 import '../../models/product_model.dart';
 import '../auth/login_screen.dart';
 import 'add_edit_product_screen.dart';
@@ -11,9 +11,7 @@ class FarmerHomeScreen extends StatelessWidget {
 
   Future<void> _logout(BuildContext context) async {
     await AuthService().signOut();
-
     if (!context.mounted) return;
-
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => LoginScreen()),
@@ -23,13 +21,7 @@ class FarmerHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = AuthService().currentUser;
-
-    if (currentUser == null) {
-      return const Scaffold(body: Center(child: Text('Please log in again.')));
-    }
-
-    final farmerId = currentUser.uid;
+    final farmerId = AuthService().currentUser!.uid;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -38,7 +30,7 @@ class FarmerHomeScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Farmlink',
+          "Farmlink",
           style: TextStyle(
             color: Colors.green,
             fontWeight: FontWeight.bold,
@@ -66,96 +58,175 @@ class FarmerHomeScreen extends StatelessWidget {
         child: const Icon(Icons.add, color: Colors.white),
       ),
 
-      body: StreamBuilder<List<Product>>(
-        stream: ProductService().farmerProductsStream(farmerId),
+      body: FutureBuilder<Map<String, dynamic>?>(
+        future: FarmerService().getFarmerProfile(farmerId),
+        builder: (context, profileSnapshot) {
+          final profile = profileSnapshot.data;
+          final farmerName = profile?['fullName'] ?? '';
+          final farmName = profile?['farmName'] ?? '';
 
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          return StreamBuilder<List<Product>>(
+            stream: ProductService().farmerProductsStream(farmerId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(30),
-                child: Text(
-                  'Could not load your products.\n\n${snapshot.error}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            );
-          }
+              final products = snapshot.data ?? [];
+              final totalProducts = products.length;
+              final totalStock = products.fold<int>(
+                0,
+                (sum, p) => sum + p.stockQuantity,
+              );
+              final activeListings = products.where((p) => p.isActive).length;
 
-          final products = snapshot.data ?? [];
-
-          if (products.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(30),
-                child: Text(
-                  "You haven't listed any products yet.\n"
-                  "Tap + to add your first one.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: products.length,
-            itemBuilder: (context, index) {
-              final product = products[index];
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(12),
-
-                  leading: CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Colors.green.withValues(alpha: 0.15),
-                    backgroundImage:
-                        product.imageUrl != null && product.imageUrl!.isNotEmpty
-                        ? NetworkImage(product.imageUrl!)
-                        : null,
-                    child: product.imageUrl == null || product.imageUrl!.isEmpty
-                        ? const Icon(Icons.eco, color: Colors.green)
-                        : null,
+              return ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // Dashboard header card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          farmerName.isNotEmpty
+                              ? "Welcome back, $farmerName 🌱"
+                              : "Welcome back 🌱",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                          ),
+                        ),
+                        if (farmName.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            farmName,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _StatBlock(
+                              label: "Products",
+                              value: "$totalProducts",
+                            ),
+                            _StatBlock(
+                              label: "Active",
+                              value: "$activeListings",
+                            ),
+                            _StatBlock(
+                              label: "Total Stock",
+                              value: "$totalStock",
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
 
-                  title: Text(
-                    product.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  const SizedBox(height: 24),
+
+                  const Text(
+                    "Your Products",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
 
-                  subtitle: Text(
-                    'KES ${product.farmerPrice.toStringAsFixed(0)} '
-                    '/ ${product.unit} · '
-                    'Stock: ${product.stockQuantity}',
-                  ),
+                  const SizedBox(height: 12),
 
-                  trailing: const Icon(Icons.chevron_right),
-
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AddEditProductScreen(
-                          farmerId: farmerId,
-                          existingProduct: product,
+                  if (products.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                        child: Text(
+                          "You haven't listed any products yet.\nTap + to add your first one.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    )
+                  else
+                    ...products.map(
+                      (product) => Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(12),
+                          leading: CircleAvatar(
+                            radius: 26,
+                            backgroundColor: Colors.green.withOpacity(0.15),
+                            backgroundImage: product.imageUrl != null
+                                ? NetworkImage(product.imageUrl!)
+                                : null,
+                            child: product.imageUrl == null
+                                ? const Icon(Icons.eco, color: Colors.green)
+                                : null,
+                          ),
+                          title: Text(
+                            product.name,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · Stock: ${product.stockQuantity}",
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AddEditProductScreen(
+                                  farmerId: farmerId,
+                                  existingProduct: product,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           );
         },
       ),
+    );
+  }
+}
+
+class _StatBlock extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatBlock({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+      ],
     );
   }
 }
