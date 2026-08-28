@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/location_service.dart';
 import 'consumer_home_screen.dart';
 
 class ConsumerRegistrationScreen extends StatefulWidget {
@@ -27,6 +28,8 @@ class _ConsumerRegistrationScreenState
     setState(() => _saving = true);
 
     try {
+      final position = await LocationService().getCurrentLocation();
+
       await AuthService().saveRoleProfile(
         uid: widget.userId,
         role: 'consumer',
@@ -36,20 +39,23 @@ class _ConsumerRegistrationScreenState
           'phone': phoneController.text.trim(),
           'county': countyController.text.trim(),
           'email': emailController.text.trim(),
+          'latitude': position?.latitude,
+          'longitude': position?.longitude,
         },
       );
 
       if (!mounted) return;
 
-      Navigator.push(
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const ConsumerHomeScreen()),
+        (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Could not save profile: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Could not save profile: $e")),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }

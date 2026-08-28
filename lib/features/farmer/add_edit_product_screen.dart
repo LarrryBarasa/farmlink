@@ -27,7 +27,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   late final TextEditingController priceController;
   late final TextEditingController stockController;
   late final TextEditingController deliveryChargeController;
-  late final TextEditingController imageUrlController;
 
   ProductCategory _category = ProductCategory.crop;
   String _unit = 'kg';
@@ -64,22 +63,29 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       text: product?.farmerDeliveryCharge?.toString() ?? '',
     );
 
-    imageUrlController = TextEditingController(text: product?.imageUrl ?? '');
-
     if (product != null) {
       _category = product.category;
       _unit = product.unit;
       _deliveryMode = product.deliveryMode;
     }
+
+    priceController.addListener(_onValuesChanged);
+    stockController.addListener(_onValuesChanged);
+  }
+
+  void _onValuesChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    priceController.removeListener(_onValuesChanged);
+    stockController.removeListener(_onValuesChanged);
+
     nameController.dispose();
     priceController.dispose();
     stockController.dispose();
     deliveryChargeController.dispose();
-    imageUrlController.dispose();
 
     super.dispose();
   }
@@ -112,34 +118,43 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         throw Exception('Please enter a valid delivery charge.');
       }
 
-      final imageText = imageUrlController.text.trim();
-
-      final imageUrl = imageText.isNotEmpty ? imageText : null;
-
       final service = ProductService();
+
+      final nameToCheck = nameController.text.trim();
+
+      final duplicateExists = await service.productNameExists(
+        widget.farmerId,
+        nameToCheck,
+        excludeId: widget.existingProduct?.id,
+      );
+
+      if (duplicateExists) {
+        throw Exception(
+          'You already have a product named "$nameToCheck". '
+          'Edit that one instead, or use a different name.',
+        );
+      }
 
       if (widget.existingProduct == null) {
         await service.addProduct(
           farmerId: widget.farmerId,
-          name: nameController.text.trim(),
+          name: nameToCheck,
           category: _category,
           farmerPrice: farmerPrice,
           unit: _unit,
           stockQuantity: stock,
           deliveryMode: _deliveryMode,
           farmerDeliveryCharge: deliveryCharge,
-          imageUrl: imageUrl,
         );
       } else {
         await service.updateProduct(widget.existingProduct!.id, {
-          'name': nameController.text.trim(),
+          'name': nameToCheck,
           'category': _category.name,
           'farmerPrice': farmerPrice,
           'unit': _unit,
           'stockQuantity': stock,
           'deliveryMode': _deliveryMode.name,
           'farmerDeliveryCharge': deliveryCharge,
-          'imageUrl': imageUrl,
         });
       }
 
@@ -149,9 +164,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     } catch (e) {
       if (!mounted) return;
 
+      final message = e.toString().replaceFirst('Exception: ', '');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not save product: $e'),
+          content: Text(message),
           backgroundColor: Colors.red,
         ),
       );
@@ -231,6 +248,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingProduct != null;
+
+    final price = double.tryParse(priceController.text.trim()) ?? 0;
+    final stock = int.tryParse(stockController.text.trim()) ?? 0;
+    final totalValue = price * stock;
 
     return Scaffold(
       appBar: AppBar(
@@ -369,6 +390,43 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
 
               const SizedBox(height: 20),
 
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Value',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.dark,
+                      ),
+                    ),
+                    Text(
+                      'KES ${totalValue.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
               DropdownButtonFormField<DeliveryMode>(
                 value: _deliveryMode,
                 decoration: InputDecoration(
@@ -430,14 +488,6 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                   },
                 ),
               ],
-
-              const SizedBox(height: 20),
-
-              AppTextField(
-                controller: imageUrlController,
-                label: 'Image URL (optional)',
-                icon: Icons.image,
-              ),
 
               const SizedBox(height: 35),
 

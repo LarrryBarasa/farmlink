@@ -6,8 +6,30 @@ import '../../models/product_model.dart';
 import '../auth/login_screen.dart';
 import 'add_edit_product_screen.dart';
 
-class FarmerHomeScreen extends StatelessWidget {
+class FarmerHomeScreen extends StatefulWidget {
   const FarmerHomeScreen({super.key});
+
+  @override
+  State<FarmerHomeScreen> createState() => _FarmerHomeScreenState();
+}
+
+class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  int _currentPage = 0;
+  static const int _perPage = 3;
+
+  late final Future<Map<String, dynamic>?> _profileFuture;
+  late final Stream<List<Product>> _productsStream;
+  late final String _farmerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _farmerId = AuthService().currentUser!.uid;
+    _profileFuture = FarmerService().getFarmerProfile(_farmerId);
+    _productsStream = ProductService().farmerProductsStream(_farmerId);
+  }
 
   Future<void> _logout(BuildContext context) async {
     await AuthService().signOut();
@@ -20,9 +42,13 @@ class FarmerHomeScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final farmerId = AuthService().currentUser!.uid;
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
 
@@ -51,7 +77,7 @@ class FarmerHomeScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => AddEditProductScreen(farmerId: farmerId),
+              builder: (_) => AddEditProductScreen(farmerId: _farmerId),
             ),
           );
         },
@@ -59,35 +85,58 @@ class FarmerHomeScreen extends StatelessWidget {
       ),
 
       body: FutureBuilder<Map<String, dynamic>?>(
-        future: FarmerService().getFarmerProfile(farmerId),
+        future: _profileFuture,
         builder: (context, profileSnapshot) {
           final profile = profileSnapshot.data;
           final farmerName = profile?['fullName'] ?? '';
           final farmName = profile?['farmName'] ?? '';
 
           return StreamBuilder<List<Product>>(
-            stream: ProductService().farmerProductsStream(farmerId),
+            stream: _productsStream,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final products = snapshot.data ?? [];
-              final totalProducts = products.length;
-              final totalStock = products.fold<int>(
+              final allProducts = snapshot.data ?? [];
+              final totalProducts = allProducts.length;
+              final totalStock = allProducts.fold<int>(
                 0,
                 (sum, p) => sum + p.stockQuantity,
               );
-              final activeListings = products.where((p) => p.isActive).length;
-              final inventoryValue = products.fold<double>(
+              final activeListings =
+                  allProducts.where((p) => p.isActive).length;
+              final inventoryValue = allProducts.fold<double>(
                 0,
                 (sum, p) => sum + (p.farmerPrice * p.stockQuantity),
               );
 
+              final filteredProducts = _searchQuery.isEmpty
+                  ? allProducts
+                  : allProducts
+                      .where((p) => p.name
+                          .toLowerCase()
+                          .contains(_searchQuery.toLowerCase()))
+                      .toList();
+
+              final totalPages = filteredProducts.isEmpty
+                  ? 1
+                  : (filteredProducts.length / _perPage).ceil();
+              if (_currentPage >= totalPages) {
+                _currentPage = totalPages - 1;
+              }
+              if (_currentPage < 0) _currentPage = 0;
+
+              final startIndex = _currentPage * _perPage;
+              final endIndex = (startIndex + _perPage) > filteredProducts.length
+                  ? filteredProducts.length
+                  : startIndex + _perPage;
+              final pageProducts =
+                  filteredProducts.sublist(startIndex, endIndex);
+
               return ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Dashboard header card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -121,15 +170,11 @@ class FarmerHomeScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _StatBlock(
-                              label: "Products",
-                              value: "$totalProducts",
-                            ),
-                            _StatBlock(
-                              label: "Active",
-                              value: "$activeListings",
-                            ),
+                            _StatBlock(label: "Products", value: "$totalProducts"),
+                            _StatBlock(label: "Active", value: "$activeListings"),
                             _StatBlock(label: "Stock", value: "$totalStock"),
+                            const _StatBlock(label: "Clients", value: "0"),
+                            const _StatBlock(label: "Sold (KES)", value: "0"),
                           ],
                         ),
 
@@ -142,7 +187,7 @@ class FarmerHomeScreen extends StatelessWidget {
                             horizontal: 16,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -150,10 +195,8 @@ class FarmerHomeScreen extends StatelessWidget {
                             children: [
                               const Text(
                                 "Potential Inventory Value",
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                ),
+                                style:
+                                    TextStyle(color: Colors.white70, fontSize: 13),
                               ),
                               Text(
                                 "KES ${inventoryValue.toStringAsFixed(0)}",
@@ -179,55 +222,117 @@ class FarmerHomeScreen extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  if (products.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40),
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                        _currentPage = 0;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Search your products...",
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                  _currentPage = 0;
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  if (filteredProducts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
                       child: Center(
                         child: Text(
-                          "You haven't listed any products yet.\nTap + to add your first one.",
+                          allProducts.isEmpty
+                              ? "You haven't listed any products yet.\nTap + to add your first one."
+                              : "No products match \"$_searchQuery\".",
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                          style: const TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ),
                     )
-                  else
-                    ...products.map(
-                      (product) => Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(12),
-                          leading: CircleAvatar(
-                            radius: 26,
-                            backgroundColor: Colors.green.withOpacity(0.15),
-                            backgroundImage: product.imageUrl != null
-                                ? NetworkImage(product.imageUrl!)
-                                : null,
-                            child: product.imageUrl == null
-                                ? const Icon(Icons.eco, color: Colors.green)
-                                : null,
-                          ),
-                          title: Text(
-                            product.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · Stock: ${product.stockQuantity}",
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AddEditProductScreen(
-                                  farmerId: farmerId,
-                                  existingProduct: product,
+                  else ...[
+                    ...pageProducts.map((product) => Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.all(12),
+                            leading: CircleAvatar(
+                              radius: 26,
+                              backgroundColor:
+                                  Colors.green.withValues(alpha: 0.15),
+                              backgroundImage: product.imageUrl != null
+                                  ? NetworkImage(product.imageUrl!)
+                                  : null,
+                              child: product.imageUrl == null
+                                  ? const Icon(Icons.eco, color: Colors.green)
+                                  : null,
+                            ),
+                            title: Text(
+                              product.name,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · Stock: ${product.stockQuantity}",
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AddEditProductScreen(
+                                    farmerId: _farmerId,
+                                    existingProduct: product,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
+                              );
+                            },
+                          ),
+                        )),
+
+                    const SizedBox(height: 8),
+
+                    if (totalPages > 1)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _currentPage > 0
+                                ? () => setState(() => _currentPage--)
+                                : null,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                          Text(
+                            "Page ${_currentPage + 1} of $totalPages",
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          IconButton(
+                            onPressed: _currentPage < totalPages - 1
+                                ? () => setState(() => _currentPage++)
+                                : null,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ],
                       ),
-                    ),
+                  ],
                 ],
               );
             },

@@ -5,6 +5,8 @@ import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/primary_button.dart';
 import '../../services/auth_service.dart';
 import 'account_type_screen.dart';
+import 'auth_redirect.dart';
+
 
 class RegisterScreen extends StatelessWidget {
   RegisterScreen({super.key});

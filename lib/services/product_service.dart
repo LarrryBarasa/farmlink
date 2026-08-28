@@ -42,6 +42,24 @@ class ProductService {
     await _products.add(product.toMap());
   }
 
+  // Check if this farmer already has a product with this name
+  Future<bool> productNameExists(
+    String farmerId,
+    String name, {
+    String? excludeId,
+  }) async {
+    final snapshot =
+        await _products.where('farmerId', isEqualTo: farmerId).get();
+
+    final normalized = name.trim().toLowerCase();
+
+    return snapshot.docs.any((doc) {
+      if (excludeId != null && doc.id == excludeId) return false;
+      final docName = (doc.data()['name'] as String? ?? '').trim().toLowerCase();
+      return docName == normalized;
+    });
+  }
+
   // Get all products belonging to a farmer
   Stream<List<Product>> getFarmerProducts(String farmerId) {
     return _products.where('farmerId', isEqualTo: farmerId).snapshots().map((
@@ -95,5 +113,26 @@ class ProductService {
         return Product.fromMap(doc.data(), doc.id);
       }).toList();
     });
+  }
+
+
+    Stream<List<Product>> allActiveProductsStream() {
+    return _products
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Product.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+
+
+    Stream<List<Product>> farmActiveProductsStream(String farmerId) {
+    return _products
+        .where('farmerId', isEqualTo: farmerId)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Product.fromMap(doc.data(), doc.id)).toList());
   }
 }

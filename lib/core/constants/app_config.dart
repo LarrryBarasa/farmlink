@@ -1,7 +1,10 @@
 class AppConfig {
-  // Platform's cut on product sales
-  static const double productCommissionRate = 0.10; // 10%
+  static const double productCommissionRate = 0.10;
+  static const double deliveryCommissionRate = 0.15;
 
-  // Platform's cut on delivery charges
-  static const double deliveryCommissionRate = 0.15; // 15%
+  // Delivery pricing
+  static const double baseDeliveryFee = 100;
+  static const double perKmRate = 30;
+  static const double extraStopFee = 50;
+  static const double farmProximityThresholdKm = 3;
 }

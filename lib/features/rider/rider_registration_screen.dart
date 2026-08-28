@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/location_service.dart';
+import 'rider_home_screen.dart';
 
 class RiderRegistrationScreen extends StatefulWidget {
   final String userId;
@@ -23,6 +25,8 @@ class _RiderRegistrationScreenState extends State<RiderRegistrationScreen> {
     setState(() => _saving = true);
 
     try {
+      final position = await LocationService().getCurrentLocation();
+
       await AuthService().saveRoleProfile(
         uid: widget.userId,
         role: 'rider',
@@ -32,18 +36,18 @@ class _RiderRegistrationScreenState extends State<RiderRegistrationScreen> {
           'phone': phoneController.text.trim(),
           'vehicleType': vehicleController.text.trim(),
           'county': countyController.text.trim(),
+          'latitude': position?.latitude,
+          'longitude': position?.longitude,
         },
       );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
+      Navigator.pushAndRemoveUntil(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Rider account created")));
-
-      // TODO: navigate to a RiderHomeScreen once it exists,
-      // same pattern as ConsumerHomeScreen.
-      Navigator.popUntil(context, (route) => route.isFirst);
+        MaterialPageRoute(builder: (_) => const RiderHomeScreen()),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -62,7 +66,7 @@ class _RiderRegistrationScreenState extends State<RiderRegistrationScreen> {
         centerTitle: true,
       ),
 
-      body: Padding(
+            body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
 
         child: Column(
@@ -129,3 +133,4 @@ class _RiderRegistrationScreenState extends State<RiderRegistrationScreen> {
     );
   }
 }
+
