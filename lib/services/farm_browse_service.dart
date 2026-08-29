@@ -17,8 +17,10 @@ class FarmBrowseService {
         .asyncMap((snapshot) async {
       final Map<String, int> countByFarmer = {};
       for (final doc in snapshot.docs) {
-        final farmerId = doc.data()['farmerId'] as String? ?? '';
-        if (farmerId.isEmpty) continue;
+        final data = doc.data();
+        final farmerId = data['farmerId'] as String? ?? '';
+        final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
+        if (farmerId.isEmpty || stock <= 0) continue;
         countByFarmer[farmerId] = (countByFarmer[farmerId] ?? 0) + 1;
       }
 
@@ -60,7 +62,6 @@ class FarmBrowseService {
         ));
       }
 
-      // Nearest first; farms with unknown distance go to the end
       summaries.sort((a, b) {
         if (a.distanceKm == null && b.distanceKm == null) return 0;
         if (a.distanceKm == null) return 1;

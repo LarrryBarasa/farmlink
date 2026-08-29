@@ -7,6 +7,7 @@ import '../../services/consumer_service.dart';
 import '../../services/farmer_service.dart';
 import '../../services/delivery_calculator_service.dart';
 import '../../services/order_service.dart';
+import '../../services/product_service.dart';
 import '../../models/order_model.dart';
 import 'consumer_home_screen.dart';
 
@@ -145,6 +146,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
 
         await OrderService().createOrder(order);
+
+        for (final cartItem in cartItems) {
+          await ProductService().decrementStock(
+            cartItem.product.id,
+            cartItem.quantity,
+          );
+        }
       }
 
       CartService().clear();

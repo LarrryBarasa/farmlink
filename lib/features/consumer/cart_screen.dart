@@ -70,14 +70,29 @@ class _CartScreenState extends State<CartScreen> {
       },
     );
 
-    if (result != null && result > 0) {
-      setState(() {
-        CartService().updateQuantity(productId, result);
-      });
-    } else if (result != null && result <= 0) {
+        if (result != null && result <= 0) {
       setState(() {
         CartService().updateQuantity(productId, 0); // removes item
       });
+      return;
+    }
+
+    if (result != null) {
+      final item = CartService().items.firstWhere((i) => i.product.id == productId);
+      final maxStock = item.product.stockQuantity;
+
+      if (result > maxStock) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Only $maxStock ${item.product.unit} available")),
+        );
+        setState(() {
+          CartService().updateQuantity(productId, maxStock);
+        });
+      } else {
+        setState(() {
+          CartService().updateQuantity(productId, result);
+        });
+      }
     }
   }
 
@@ -238,12 +253,24 @@ class _CartScreenState extends State<CartScreen> {
                                                     ),
                                                   ),
                                                 ),
-                                                IconButton(
+                                                                                                IconButton(
                                                   icon: const Icon(
                                                     Icons.add_circle_outline,
                                                     size: 22,
                                                   ),
                                                   onPressed: () {
+                                                    if (item.quantity >=
+                                                        item.product.stockQuantity) {
+                                                      ScaffoldMessenger.of(context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            "Only ${item.product.stockQuantity} ${item.product.unit} available",
+                                                          ),
+                                                        ),
+                                                      );
+                                                      return;
+                                                    }
                                                     setState(() {
                                                       CartService().updateQuantity(
                                                         item.product.id,

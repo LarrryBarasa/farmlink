@@ -8,11 +8,8 @@ class ProductService {
   CollectionReference<Map<String, dynamic>> get _products =>
       _firestore.collection('products');
 
-  // Commission rate applied to every new product.
-  // Change this value when your business commission changes.
   static const double defaultCommissionRate = 0.10;
 
-  // Add a new product
   Future<void> addProduct({
     required String farmerId,
     required String name,
@@ -42,7 +39,6 @@ class ProductService {
     await _products.add(product.toMap());
   }
 
-  // Check if this farmer already has a product with this name
   Future<bool> productNameExists(
     String farmerId,
     String name, {
@@ -60,7 +56,6 @@ class ProductService {
     });
   }
 
-  // Get all products belonging to a farmer
   Stream<List<Product>> getFarmerProducts(String farmerId) {
     return _products.where('farmerId', isEqualTo: farmerId).snapshots().map((
       snapshot,
@@ -69,40 +64,6 @@ class ProductService {
         return Product.fromMap(doc.data(), doc.id);
       }).toList();
     });
-  }
-
-  // Get a single product
-  Future<Product?> getProduct(String productId) async {
-    final doc = await _products.doc(productId).get();
-
-    if (!doc.exists || doc.data() == null) {
-      return null;
-    }
-
-    return Product.fromMap(doc.data()!, doc.id);
-  }
-
-  // Update an existing product
-  Future<void> updateProduct(
-    String productId,
-    Map<String, dynamic> updates,
-  ) async {
-    await _products.doc(productId).update(updates);
-  }
-
-  // Delete a product
-  Future<void> deleteProduct(String productId) async {
-    await _products.doc(productId).delete();
-  }
-
-  // Activate/deactivate a product
-  Future<void> setProductActive(String productId, bool isActive) async {
-    await _products.doc(productId).update({'isActive': isActive});
-  }
-
-  // Update stock quantity
-  Future<void> updateStock(String productId, int quantity) async {
-    await _products.doc(productId).update({'stockQuantity': quantity});
   }
 
   Stream<List<Product>> farmerProductsStream(String farmerId) {
@@ -115,24 +76,58 @@ class ProductService {
     });
   }
 
+  Stream<List<Product>> farmActiveProductsStream(String farmerId) {
+    return _products
+        .where('farmerId', isEqualTo: farmerId)
+        .where('isActive', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Product.fromMap(doc.data(), doc.id))
+            .where((product) => product.stockQuantity > 0)
+            .toList());
+  }
 
-    Stream<List<Product>> allActiveProductsStream() {
+  Future<Product?> getProduct(String productId) async {
+    final doc = await _products.doc(productId).get();
+
+    if (!doc.exists || doc.data() == null) {
+      return null;
+    }
+
+    return Product.fromMap(doc.data()!, doc.id);
+  }
+
+  Future<void> updateProduct(
+    String productId,
+    Map<String, dynamic> updates,
+  ) async {
+    await _products.doc(productId).update(updates);
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    await _products.doc(productId).delete();
+  }
+
+  Future<void> setProductActive(String productId, bool isActive) async {
+    await _products.doc(productId).update({'isActive': isActive});
+  }
+
+  Future<void> updateStock(String productId, int quantity) async {
+    await _products.doc(productId).update({'stockQuantity': quantity});
+  }
+
+  Future<void> decrementStock(String productId, int quantityOrdered) async {
+    await _products.doc(productId).update({
+      'stockQuantity': FieldValue.increment(-quantityOrdered),
+    });
+  }
+
+  Stream<List<Product>> allActiveProductsStream() {
     return _products
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Product.fromMap(doc.data(), doc.id))
             .toList());
-  }
-
-
-
-    Stream<List<Product>> farmActiveProductsStream(String farmerId) {
-    return _products
-        .where('farmerId', isEqualTo: farmerId)
-        .where('isActive', isEqualTo: true)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Product.fromMap(doc.data(), doc.id)).toList());
   }
 }

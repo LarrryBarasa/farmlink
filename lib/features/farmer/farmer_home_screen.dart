@@ -5,6 +5,7 @@ import '../../services/farmer_service.dart';
 import '../../models/product_model.dart';
 import '../auth/login_screen.dart';
 import 'add_edit_product_screen.dart';
+import 'farmer_orders_screen.dart';
 
 class FarmerHomeScreen extends StatefulWidget {
   const FarmerHomeScreen({super.key});
@@ -64,6 +65,17 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FarmerOrdersScreen(farmerId: _farmerId),
+                ),
+              );
+            },
+            icon: const Icon(Icons.receipt_long, color: Colors.black),
+          ),
           IconButton(
             onPressed: () => _logout(context),
             icon: const Icon(Icons.logout, color: Colors.black),
@@ -291,7 +303,12 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                                   const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Text(
-                              "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · Stock: ${product.stockQuantity}",
+                              product.stockQuantity <= 0
+                                  ? "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · OUT OF STOCK"
+                                  : "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · Stock: ${product.stockQuantity}",
+                              style: product.stockQuantity <= 0
+                                  ? const TextStyle(color: Colors.red)
+                                  : null,
                             ),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () {

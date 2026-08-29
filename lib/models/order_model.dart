@@ -1,12 +1,12 @@
-enum OrderStatus { pending, confirmed, delivered, cancelled }
+enum OrderStatus { pending, accepted, inTransit, delivered, cancelled }
 
 class OrderItem {
   final String productId;
   final String name;
   final String unit;
   final int quantity;
-  final double consumerUnitPrice; // what the consumer pays per unit
-  final double farmerUnitPrice; // what the farmer earns per unit
+  final double consumerUnitPrice;
+  final double farmerUnitPrice;
 
   OrderItem({
     required this.productId,
@@ -51,8 +51,9 @@ class FarmOrder {
   final String consumerPhone;
   final List<OrderItem> items;
   final double deliveryCharge;
-  final String deliveryMode; // 'farmerSelf' or 'platformDelivery'
+  final String deliveryMode;
   final OrderStatus status;
+  final String? riderId;
   final DateTime? createdAt;
 
   FarmOrder({
@@ -65,6 +66,7 @@ class FarmOrder {
     required this.deliveryCharge,
     required this.deliveryMode,
     required this.status,
+    this.riderId,
     this.createdAt,
   });
 
@@ -76,7 +78,7 @@ class FarmOrder {
   double get farmerEarnings =>
       items.fold(0, (sum, item) => sum + item.farmerEarnings);
 
-    factory FarmOrder.fromMap(Map<String, dynamic> map, String id) {
+  factory FarmOrder.fromMap(Map<String, dynamic> map, String id) {
     return FarmOrder(
       id: id,
       farmerId: map['farmerId'] ?? '',
@@ -92,6 +94,7 @@ class FarmOrder {
         (s) => s.name == map['status'],
         orElse: () => OrderStatus.pending,
       ),
+      riderId: map['riderId'] as String?,
       createdAt: map['createdAt'] != null
           ? DateTime.tryParse(map['createdAt'].toString())
           : null,
@@ -108,6 +111,7 @@ class FarmOrder {
       'deliveryCharge': deliveryCharge,
       'deliveryMode': deliveryMode,
       'status': status.name,
+      'riderId': riderId,
       'createdAt': DateTime.now().toIso8601String(),
     };
   }
