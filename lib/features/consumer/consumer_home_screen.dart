@@ -1,70 +1,207 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/consumer_service.dart';
 import '../../services/farm_browse_service.dart';
 import '../../services/cart_service.dart';
-
+import '../../services/order_service.dart';
+import '../../services/rider_service.dart';
 import '../../models/farm_summary.dart';
-
+import '../../models/order_model.dart';
 import '../auth/login_screen.dart';
-
 import 'cart_screen.dart';
 import 'farm_products_screen.dart';
 import 'consumer_orders_screen.dart';
 
 class ConsumerHomeScreen extends StatefulWidget {
-  const ConsumerHomeScreen({super.key});
+  const ConsumerHomeScreen({
+    super.key,
+  });
 
   @override
-  State<ConsumerHomeScreen> createState() => _ConsumerHomeScreenState();
+  State<ConsumerHomeScreen> createState() =>
+      _ConsumerHomeScreenState();
 }
 
-class _ConsumerHomeScreenState extends State<ConsumerHomeScreen> {
-  final TextEditingController _searchController = TextEditingController();
+class _ConsumerHomeScreenState
+    extends State<ConsumerHomeScreen> {
+  final TextEditingController _searchController =
+      TextEditingController();
 
   String _searchQuery = '';
 
   late final String _consumerId;
-  late final Future<Map<String, dynamic>?> _consumerProfileFuture;
 
-  // ------------------------------------------------------------
-  // PAGINATION
-  // ------------------------------------------------------------
+  late final Future<Map<String, dynamic>?>
+      _consumerProfileFuture;
 
-  static const int _itemsPerPage = 5;
+  StreamSubscription<List<FarmOrder>>?
+      _orderSub;
 
-  int _currentPage = 0;
+  StreamSubscription<void>? _cartSub;
 
-  // ------------------------------------------------------------
+  final Map<String, OrderStatus>
+      _previousStatus = {};
+
+  bool _firstOrderLoad = true;
+
+  // ================================================================
   // INIT
-  // ------------------------------------------------------------
+  // ================================================================
 
   @override
   void initState() {
     super.initState();
 
-    _consumerId = AuthService().currentUser!.uid;
+    final currentUser =
+        AuthService().currentUser;
+
+    if (currentUser == null) {
+      return;
+    }
+
+    _consumerId = currentUser.uid;
 
     _consumerProfileFuture =
-        ConsumerService().getConsumerProfile(_consumerId);
+        ConsumerService()
+            .getConsumerProfile(
+      _consumerId,
+    );
+
+    // ==============================================================
+    // ORDER LISTENER
+    // ==============================================================
+
+    _orderSub = OrderService()
+        .consumerOrdersStream(
+      _consumerId,
+    )
+        .listen(
+      _handleOrderUpdates,
+    );
+
+    // ==============================================================
+    // CART LISTENER
+    // ==============================================================
+
+    _cartSub = CartService()
+        .changes
+        .listen((_) {
+      if (!mounted) return;
+
+      setState(() {});
+    });
   }
 
-  // ------------------------------------------------------------
-  // DISPOSE
-  // ------------------------------------------------------------
+  // ================================================================
+  // ORDER UPDATES
+  // ================================================================
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void _handleOrderUpdates(
+    List<FarmOrder> orders,
+  ) {
+    for (final order in orders) {
+      final previous =
+          _previousStatus[order.id];
+
+      if (!_firstOrderLoad &&
+          previous != null &&
+          previous != order.status) {
+        if (order.status ==
+                OrderStatus.accepted &&
+            order.riderId != null) {
+          _showRiderAssignedDialog(order);
+        } else if (order.status ==
+            OrderStatus.delivered) {
+          _showDeliveredDialog();
+        }
+      }
+
+      _previousStatus[order.id] =
+          order.status;
+    }
+
+    _firstOrderLoad = false;
   }
 
-  // ------------------------------------------------------------
+  // ================================================================
+  // RIDER ASSIGNED
+  // ================================================================
+
+  Future<void> _showRiderAssignedDialog(
+    FarmOrder order,
+  ) async {
+    final riderProfile =
+        await RiderService()
+            .getRiderProfile(
+      order.riderId!,
+    );
+
+    final riderName =
+        riderProfile?['fullName'] ??
+            'A rider';
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text(
+          "Rider Assigned!",
+        ),
+        content: Text(
+          "$riderName has accepted your delivery "
+          "and is on the way soon.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================================================================
+  // DELIVERED
+  // ================================================================
+
+  void _showDeliveredDialog() {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text(
+          "Order Delivered!",
+        ),
+        content: const Text(
+          "Your order has been marked as delivered. "
+          "Enjoy!",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================================================================
   // LOGOUT
-  // ------------------------------------------------------------
+  // ================================================================
 
-  Future<void> _logout(BuildContext context) async {
+  Future<void> _logout(
+    BuildContext context,
+  ) async {
     await AuthService().signOut();
 
     if (!context.mounted) return;
@@ -78,65 +215,131 @@ class _ConsumerHomeScreenState extends State<ConsumerHomeScreen> {
     );
   }
 
-  // ------------------------------------------------------------
-  // SEARCH
-  // ------------------------------------------------------------
-
-  void _updateSearch(String value) {
-    setState(() {
-      _searchQuery = value;
-
-      // Whenever the search changes,
-      // return to the first page.
-      _currentPage = 0;
-    });
-  }
-
-  // ------------------------------------------------------------
-  // OPEN ORDERS
-  // ------------------------------------------------------------
-
-  void _openOrders() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ConsumerOrdersScreen(
-          consumerId: _consumerId,
-        ),
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------
-  // OPEN CART
-  // ------------------------------------------------------------
-
-  Future<void> _openCart() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const CartScreen(),
-      ),
-    );
-
-    // Refresh cart badge when returning.
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // ------------------------------------------------------------
-  // BUILD
-  // ------------------------------------------------------------
+  // ================================================================
+  // DISPOSE
+  // ================================================================
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+  void dispose() {
+    _orderSub?.cancel();
+    _cartSub?.cancel();
+    _searchController.dispose();
 
-      // ==========================================================
+    super.dispose();
+  }
+
+  // ================================================================
+  // DASHBOARD
+  // ================================================================
+
+  Widget _buildDashboard(
+    List<FarmOrder> orders,
+    int farmCount,
+  ) {
+    final activeOrders =
+        orders.where(
+      (order) =>
+          order.status ==
+              OrderStatus.pending ||
+          order.status ==
+              OrderStatus.accepted ||
+          order.status ==
+              OrderStatus.inTransit,
+    ).length;
+
+    final deliveredOrders =
+        orders.where(
+      (order) =>
+          order.status ==
+          OrderStatus.delivered,
+    ).length;
+
+    final cartItems =
+        CartService().itemCount;
+
+    return Column(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Your Dashboard",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics:
+              const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.55,
+          children: [
+            _ConsumerDashboardCard(
+              title: "Active Orders",
+              value: "$activeOrders",
+              subtitle: "In progress",
+              icon:
+                  Icons.local_shipping_outlined,
+              color: Colors.orange,
+            ),
+
+            _ConsumerDashboardCard(
+              title: "Delivered",
+              value: "$deliveredOrders",
+              subtitle: "Completed orders",
+              icon:
+                  Icons.check_circle_outline,
+              color: Colors.green,
+            ),
+
+            _ConsumerDashboardCard(
+              title: "Farms Available",
+              value: "$farmCount",
+              subtitle: "Ready to shop",
+              icon: Icons.agriculture,
+              color: Colors.blue,
+            ),
+
+            _ConsumerDashboardCard(
+              title: "Cart Items",
+              value: "$cartItems",
+              subtitle: "Ready to checkout",
+              icon:
+                  Icons.shopping_cart_outlined,
+              color: Colors.purple,
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  // ================================================================
+  // BUILD
+  // ================================================================
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    final cartCount =
+        CartService().itemCount;
+
+    return Scaffold(
+      backgroundColor:
+          const Color(0xFFF5F5F5),
+
+      // ============================================================
       // APP BAR
-      // ==========================================================
+      // ============================================================
 
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -152,54 +355,93 @@ class _ConsumerHomeScreenState extends State<ConsumerHomeScreen> {
         ),
 
         actions: [
-          // ======================================================
-          // ORDERS BUTTON
-          // ======================================================
+          // ========================================================
+          // ORDERS
+          // ========================================================
 
           IconButton(
-            onPressed: _openOrders,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ConsumerOrdersScreen(
+                    consumerId:
+                        _consumerId,
+                  ),
+                ),
+              );
+            },
             icon: const Icon(
               Icons.receipt_long,
               color: Colors.black,
             ),
-            tooltip: "My Orders",
           ),
 
-          // ======================================================
-          // CART BUTTON
-          // ======================================================
+          // ========================================================
+          // CART
+          // ========================================================
 
           Stack(
+            clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
               IconButton(
-                onPressed: _openCart,
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const CartScreen(),
+                    ),
+                  );
+
+                  if (mounted) {
+                    setState(() {});
+                  }
+                },
                 icon: const Icon(
                   Icons.shopping_cart_outlined,
                   color: Colors.black,
                 ),
-                tooltip: "Cart",
               ),
 
-              // Cart item count badge
-              if (CartService().itemCount > 0)
-                Positioned(
-                  right: 6,
-                  top: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
+              // ====================================================
+              // CART BADGE
+              // ====================================================
 
-                    decoration: const BoxDecoration(
+              if (cartCount > 0)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    constraints:
+                        const BoxConstraints(
+                      minWidth: 19,
+                      minHeight: 19,
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration:
+                        const BoxDecoration(
                       color: Colors.red,
                       shape: BoxShape.circle,
                     ),
-
-                    child: Text(
-                      "${CartService().itemCount}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                    child: Center(
+                      child: Text(
+                        cartCount > 99
+                            ? "99+"
+                            : "$cartCount",
+                        style:
+                            const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -207,443 +449,574 @@ class _ConsumerHomeScreenState extends State<ConsumerHomeScreen> {
             ],
           ),
 
-          // ======================================================
-          // LOGOUT BUTTON
-          // ======================================================
+          // ========================================================
+          // LOGOUT
+          // ========================================================
 
           IconButton(
-            onPressed: () => _logout(context),
+            onPressed: () =>
+                _logout(context),
             icon: const Icon(
               Icons.logout,
               color: Colors.black,
             ),
-            tooltip: "Logout",
           ),
         ],
       ),
 
-      // ==========================================================
+      // ============================================================
       // BODY
-      // ==========================================================
+      // ============================================================
 
-      body: FutureBuilder<Map<String, dynamic>?>(
-        future: _consumerProfileFuture,
+      body: FutureBuilder<
+          Map<String, dynamic>?>(
+        future:
+            _consumerProfileFuture,
+        builder: (
+          context,
+          profileSnapshot,
+        ) {
+          final consumerData =
+              profileSnapshot.data;
 
-        builder: (context, profileSnapshot) {
-          final consumerData = profileSnapshot.data;
+          // ========================================================
+          // GET USERNAME
+          // ========================================================
 
-          // Get consumer latitude.
+          final username =
+              consumerData?['fullName'] ??
+                  consumerData?['name'] ??
+                  consumerData?['username'] ??
+                  'there';
+
           final consumerLat =
-              (consumerData?['latitude'] as num?)?.toDouble();
+              (consumerData?['latitude']
+                      as num?)
+                  ?.toDouble();
 
-          // Get consumer longitude.
           final consumerLng =
-              (consumerData?['longitude'] as num?)?.toDouble();
+              (consumerData?['longitude']
+                      as num?)
+                  ?.toDouble();
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
+          return StreamBuilder<
+              List<FarmOrder>>(
+            stream: OrderService()
+                .consumerOrdersStream(
+              _consumerId,
+            ),
+            builder: (
+              context,
+              orderSnapshot,
+            ) {
+              final orders =
+                  orderSnapshot.data ??
+                      <FarmOrder>[];
 
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              return Padding(
+                padding:
+                    const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    // =================================================
+                    // WELCOME
+                    // =================================================
 
-              children: [
-                // ==================================================
-                // PAGE TITLE
-                // ==================================================
-
-                const Text(
-                  "Farms near you",
-
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                // ==================================================
-                // LOCATION WARNING
-                // ==================================================
-
-                if (consumerLat == null || consumerLng == null) ...[
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    "Your location isn't set, so distances can't be "
-                    "shown. Ask support to update your location.",
-
-                    style: TextStyle(
-                      color: Colors.orange,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 16),
-
-                // ==================================================
-                // SEARCH BAR
-                // ==================================================
-
-                TextField(
-                  controller: _searchController,
-
-                  onChanged: _updateSearch,
-
-                  decoration: InputDecoration(
-                    hintText: "Search farms...",
-
-                    prefixIcon: const Icon(
-                      Icons.search,
+                    Text(
+                      "Welcome, $username 👋",
+                      style:
+                          const TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey,
+                        fontWeight:
+                            FontWeight.w500,
+                      ),
                     ),
 
-                    filled: true,
-
-                    fillColor: Colors.white,
-
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ==================================================
-                // FARMS
-                // ==================================================
-
-                Expanded(
-                  child: StreamBuilder<List<FarmSummary>>(
-                    stream: FarmBrowseService().nearbyFarmsStream(
-                      consumerLat: consumerLat,
-                      consumerLng: consumerLng,
+                    const SizedBox(
+                      height: 16,
                     ),
 
-                    builder: (context, snapshot) {
-                      // ------------------------------------------------
-                      // LOADING
-                      // ------------------------------------------------
+                    // =================================================
+                    // FARMS STREAM
+                    // =================================================
 
-                      if (snapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(),
-                        );
-                      }
+                    Expanded(
+                      child: StreamBuilder<
+                          List<FarmSummary>>(
+                        stream:
+                            FarmBrowseService()
+                                .nearbyFarmsStream(
+                          consumerLat:
+                              consumerLat,
+                          consumerLng:
+                              consumerLng,
+                        ),
+                        builder: (
+                          context,
+                          snapshot,
+                        ) {
+                          if (snapshot
+                                  .connectionState ==
+                              ConnectionState
+                                  .waiting) {
+                            return const Center(
+                              child:
+                                  CircularProgressIndicator(),
+                            );
+                          }
 
-                      // ------------------------------------------------
-                      // ERROR
-                      // ------------------------------------------------
+                          final allFarms =
+                              snapshot.data ??
+                                  <FarmSummary>[];
 
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
+                          final filtered =
+                              _searchQuery
+                                      .isEmpty
+                                  ? allFarms
+                                  : allFarms
+                                      .where(
+                                      (farm) {
+                                        return farm
+                                            .farmName
+                                            .toLowerCase()
+                                            .contains(
+                                              _searchQuery
+                                                  .toLowerCase(),
+                                            );
+                                      },
+                                    )
+                                      .toList();
 
-                            child: Text(
-                              "Could not load farms.\n\n"
-                              "${snapshot.error}",
+                          return ListView(
+                            children: [
+                              // =================================================
+                              // DASHBOARD
+                              // =================================================
 
-                              textAlign: TextAlign.center,
-
-                              style: const TextStyle(
-                                color: Colors.red,
+                              _buildDashboard(
+                                orders,
+                                allFarms.length,
                               ),
-                            ),
-                          ),
-                        );
-                      }
 
-                      // ------------------------------------------------
-                      // ALL FARMS
-                      // ------------------------------------------------
+                              // =================================================
+                              // LOCATION WARNING
+                              // =================================================
 
-                      final allFarms = snapshot.data ?? [];
-
-                      // ------------------------------------------------
-                      // FILTER FARMS BY SEARCH
-                      // ------------------------------------------------
-
-                      final filtered = _searchQuery.isEmpty
-                          ? allFarms
-                          : allFarms
-                              .where(
-                                (farm) => farm.farmName
-                                    .toLowerCase()
-                                    .contains(
-                                      _searchQuery.toLowerCase(),
+                              if (consumerLat ==
+                                      null ||
+                                  consumerLng ==
+                                      null) ...[
+                                Container(
+                                  padding:
+                                      const EdgeInsets
+                                          .all(12),
+                                  decoration:
+                                      BoxDecoration(
+                                    color: Colors
+                                        .orange
+                                        .withValues(
+                                      alpha: 0.1,
                                     ),
-                              )
-                              .toList();
-
-                      // ------------------------------------------------
-                      // NO FARMS
-                      // ------------------------------------------------
-
-                      if (filtered.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            "No farms with products available right now.",
-
-                            style: TextStyle(
-                              color: Colors.grey,
-                            ),
-                          ),
-                        );
-                      }
-
-                      // ------------------------------------------------
-                      // TOTAL PAGES
-                      // ------------------------------------------------
-
-                      final totalPages =
-                          (filtered.length / _itemsPerPage).ceil();
-
-                      // Make sure current page remains valid.
-                      if (_currentPage >= totalPages) {
-                        _currentPage = totalPages - 1;
-                      }
-
-                      // ------------------------------------------------
-                      // PAGE START
-                      // ------------------------------------------------
-
-                      final startIndex =
-                          _currentPage * _itemsPerPage;
-
-                      // ------------------------------------------------
-                      // PAGE END
-                      // ------------------------------------------------
-
-                      final endIndex =
-                          (startIndex + _itemsPerPage)
-                              .clamp(0, filtered.length);
-
-                      // ------------------------------------------------
-                      // FARMS FOR CURRENT PAGE
-                      // ------------------------------------------------
-
-                      final pageFarms = filtered.sublist(
-                        startIndex,
-                        endIndex,
-                      );
-
-                      // =================================================
-                      // PAGE CONTENT
-                      // =================================================
-
-                      return Column(
-                        children: [
-                          // =============================================
-                          // FARM CARDS
-                          // =============================================
-
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: pageFarms.length,
-
-                              itemBuilder: (context, index) {
-                                final farm = pageFarms[index];
-
-                                return Card(
-                                  margin: const EdgeInsets.only(
-                                    bottom: 12,
-                                  ),
-
-                                  elevation: 1,
-
-                                  shape: RoundedRectangleBorder(
                                     borderRadius:
-                                        BorderRadius.circular(12),
+                                        BorderRadius
+                                            .circular(
+                                      12,
+                                    ),
                                   ),
-
-                                  child: ListTile(
-                                    contentPadding:
-                                        const EdgeInsets.all(12),
-
-                                    // ---------------------------------
-                                    // FARM ICON
-                                    // ---------------------------------
-
-                                    leading: CircleAvatar(
-                                      radius: 26,
-
-                                      backgroundColor:
-                                          Colors.green.withValues(
-                                        alpha: 0.15,
+                                  child:
+                                      const Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment
+                                            .start,
+                                    children: [
+                                      Icon(
+                                        Icons
+                                            .location_off,
+                                        color: Colors
+                                            .orange,
+                                        size: 20,
                                       ),
-
-                                      child: const Icon(
-                                        Icons.agriculture,
-
-                                        color: Colors.green,
+                                      SizedBox(
+                                        width: 8,
                                       ),
-                                    ),
-
-                                    // ---------------------------------
-                                    // FARM NAME
-                                    // ---------------------------------
-
-                                    title: Text(
-                                      farm.farmName,
-
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-
-                                    // ---------------------------------
-                                    // FARM DISTANCE + PRODUCTS
-                                    // ---------------------------------
-
-                                    subtitle: Padding(
-                                      padding:
-                                          const EdgeInsets.only(top: 5),
-
-                                      child: Text(
-                                        farm.distanceKm != null
-                                            ? "${farm.distanceKm!.toStringAsFixed(1)} "
-                                              "km away · "
-                                              "${farm.productCount} products"
-                                            : "Distance unknown · "
-                                              "${farm.productCount} products",
-                                      ),
-                                    ),
-
-                                    // ---------------------------------
-                                    // ARROW
-                                    // ---------------------------------
-
-                                    trailing: const Icon(
-                                      Icons.chevron_right,
-                                    ),
-
-                                    // ---------------------------------
-                                    // OPEN FARM
-                                    // ---------------------------------
-
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              FarmProductsScreen(
-                                            farmerId:
-                                                farm.farmerId,
-
-                                            farmName:
-                                                farm.farmName,
+                                      Expanded(
+                                        child:
+                                            Text(
+                                          "Your location isn't set, so distances can't be shown. "
+                                          "Ask support to update your location.",
+                                          style:
+                                              TextStyle(
+                                            color: Colors
+                                                .orange,
+                                            fontSize:
+                                                13,
                                           ),
                                         ),
-                                      );
-                                    },
+                                      ),
+                                    ],
                                   ),
-                                );
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          // =============================================
-                          // PAGINATION
-                          // =============================================
-
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
-
-                            children: [
-                              // -----------------------------------------
-                              // PREVIOUS
-                              // -----------------------------------------
-
-                              IconButton(
-                                onPressed: _currentPage > 0
-                                    ? () {
-                                        setState(() {
-                                          _currentPage--;
-                                        });
-                                      }
-                                    : null,
-
-                                icon: const Icon(
-                                  Icons.chevron_left,
                                 ),
 
-                                tooltip: "Previous page",
+                                const SizedBox(
+                                  height: 16,
+                                ),
+                              ],
+
+                              // =================================================
+                              // FARMS HEADER
+                              // =================================================
+
+                              const Text(
+                                "Farms Near You",
+                                style:
+                                    TextStyle(
+                                  fontSize: 22,
+                                  fontWeight:
+                                      FontWeight
+                                          .bold,
+                                ),
                               ),
 
-                              const SizedBox(width: 10),
+                              const SizedBox(
+                                height: 12,
+                              ),
 
-                              // -----------------------------------------
-                              // PAGE NUMBER
-                              // -----------------------------------------
+                              // =================================================
+                              // SEARCH
+                              // =================================================
 
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-
-                                  borderRadius:
-                                      BorderRadius.circular(20),
-                                ),
-
-                                child: Text(
-                                  "Page ${_currentPage + 1} "
-                                  "of $totalPages",
-
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
+                              TextField(
+                                controller:
+                                    _searchController,
+                                onChanged:
+                                    (value) {
+                                  setState(() {
+                                    _searchQuery =
+                                        value;
+                                  });
+                                },
+                                decoration:
+                                    InputDecoration(
+                                  hintText:
+                                      "Search farms...",
+                                  prefixIcon:
+                                      const Icon(
+                                    Icons.search,
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      Colors.white,
+                                  border:
+                                      OutlineInputBorder(
+                                    borderRadius:
+                                        BorderRadius
+                                            .circular(
+                                      12,
+                                    ),
+                                    borderSide:
+                                        BorderSide
+                                            .none,
                                   ),
                                 ),
                               ),
 
-                              const SizedBox(width: 10),
+                              const SizedBox(
+                                height: 16,
+                              ),
 
-                              // -----------------------------------------
-                              // NEXT
-                              // -----------------------------------------
+                              // =================================================
+                              // NO FARMS
+                              // =================================================
 
-                              IconButton(
-                                onPressed:
-                                    _currentPage < totalPages - 1
-                                        ? () {
-                                            setState(() {
-                                              _currentPage++;
-                                            });
-                                          }
-                                        : null,
-
-                                icon: const Icon(
-                                  Icons.chevron_right,
+                              if (filtered.isEmpty)
+                                const Padding(
+                                  padding:
+                                      EdgeInsets.only(
+                                    top: 40,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      "No farms with products available right now.",
+                                      textAlign:
+                                          TextAlign
+                                              .center,
+                                      style:
+                                          TextStyle(
+                                        color:
+                                            Colors.grey,
+                                      ),
+                                    ),
+                                  ),
                                 ),
 
-                                tooltip: "Next page",
+                              // =================================================
+                              // FARM LIST
+                              // =================================================
+
+                              ...filtered.map(
+                                (farm) {
+                                  return Card(
+                                    margin:
+                                        const EdgeInsets
+                                            .only(
+                                      bottom: 12,
+                                    ),
+                                    shape:
+                                        RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(
+                                        14,
+                                      ),
+                                    ),
+                                    child:
+                                        ListTile(
+                                      contentPadding:
+                                          const EdgeInsets
+                                              .all(
+                                        14,
+                                      ),
+                                      leading:
+                                          Container(
+                                        width: 48,
+                                        height: 48,
+                                        decoration:
+                                            BoxDecoration(
+                                          color: Colors
+                                              .green
+                                              .withValues(
+                                            alpha:
+                                                0.12,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius
+                                                  .circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child:
+                                            const Icon(
+                                          Icons
+                                              .agriculture,
+                                          color: Colors
+                                              .green,
+                                          size: 26,
+                                        ),
+                                      ),
+                                      title: Text(
+                                        farm.farmName,
+                                        style:
+                                            const TextStyle(
+                                          fontWeight:
+                                              FontWeight
+                                                  .bold,
+                                          fontSize:
+                                              16,
+                                        ),
+                                      ),
+                                      subtitle:
+                                          Padding(
+                                        padding:
+                                            const EdgeInsets
+                                                .only(
+                                          top: 4,
+                                        ),
+                                        child:
+                                            Text(
+                                          farm.distanceKm !=
+                                                  null
+                                              ? "${farm.distanceKm!.toStringAsFixed(1)} km away · ${farm.productCount} products"
+                                              : "${farm.productCount} products available",
+                                        ),
+                                      ),
+                                      trailing:
+                                          Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration:
+                                            BoxDecoration(
+                                          color: AppColors
+                                              .primary
+                                              .withValues(
+                                            alpha:
+                                                0.1,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius
+                                                  .circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child:
+                                            const Icon(
+                                          Icons
+                                              .chevron_right,
+                                          color: AppColors
+                                              .primary,
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        Navigator
+                                            .push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) =>
+                                                    FarmProductsScreen(
+                                              farmerId:
+                                                  farm.farmerId,
+                                              farmName:
+                                                  farm.farmName,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
                               ),
                             ],
-                          ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
 
-                          const SizedBox(height: 5),
-                        ],
-                      );
-                    },
+// ====================================================================
+// CONSUMER DASHBOARD CARD
+// ====================================================================
+
+class _ConsumerDashboardCard
+    extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  const _ConsumerDashboardCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.all(14),
+      decoration:
+          BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color:
+                Colors.black.withValues(
+              alpha: 0.04,
+            ),
+            blurRadius: 8,
+            offset:
+                const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration:
+                BoxDecoration(
+              color:
+                  color.withValues(
+                alpha: 0.12,
+              ),
+              borderRadius:
+                  BorderRadius.circular(
+                12,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 23,
+            ),
+          ),
+
+          const SizedBox(
+            width: 10,
+          ),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 3,
+                ),
+
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(
+                    fontSize: 20,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
               ],
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }

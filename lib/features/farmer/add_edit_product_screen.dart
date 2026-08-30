@@ -287,7 +287,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               const SizedBox(height: 20),
 
               DropdownButtonFormField<ProductCategory>(
-                value: _category,
+                initialValue: _category,
                 decoration: InputDecoration(
                   labelText: 'Category',
                   filled: true,
@@ -340,7 +340,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               const SizedBox(height: 20),
 
               DropdownButtonFormField<String>(
-                value: _unit,
+                initialValue: _unit,
                 decoration: InputDecoration(
                   labelText: 'Unit',
                   filled: true,
@@ -428,7 +428,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
               const SizedBox(height: 20),
 
               DropdownButtonFormField<DeliveryMode>(
-                value: _deliveryMode,
+                initialValue: _deliveryMode,
                 decoration: InputDecoration(
                   labelText: 'Delivery',
                   filled: true,

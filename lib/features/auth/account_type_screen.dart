@@ -109,7 +109,7 @@ class AccountTypeScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 30,
-                backgroundColor: color.withOpacity(.15),
+                backgroundColor: color.withValues(alpha: .15),
                 child: Icon(icon, color: color, size: 32),
               ),
 

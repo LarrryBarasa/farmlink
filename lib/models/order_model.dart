@@ -1,4 +1,10 @@
-enum OrderStatus { pending, accepted, inTransit, delivered, cancelled }
+enum OrderStatus {
+  pending,
+  accepted,
+  inTransit,
+  delivered,
+  cancelled,
+}
 
 class OrderItem {
   final String productId;
@@ -18,16 +24,21 @@ class OrderItem {
   });
 
   double get subtotal => consumerUnitPrice * quantity;
+
   double get farmerEarnings => farmerUnitPrice * quantity;
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
-      productId: map['productId'] ?? '',
-      name: map['name'] ?? '',
-      unit: map['unit'] ?? '',
-      quantity: map['quantity'] ?? 0,
-      consumerUnitPrice: (map['consumerUnitPrice'] as num?)?.toDouble() ?? 0,
-      farmerUnitPrice: (map['farmerUnitPrice'] as num?)?.toDouble() ?? 0,
+      productId: map['productId']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      unit: map['unit']?.toString() ?? '',
+      quantity: _safeInt(map['quantity']),
+      consumerUnitPrice: _safeDouble(
+        map['consumerUnitPrice'],
+      ),
+      farmerUnitPrice: _safeDouble(
+        map['farmerUnitPrice'],
+      ),
     );
   }
 
@@ -45,15 +56,31 @@ class OrderItem {
 
 class FarmOrder {
   final String id;
+
   final String farmerId;
   final String consumerId;
+
   final String consumerName;
   final String consumerPhone;
+
   final List<OrderItem> items;
+
   final double deliveryCharge;
+
+  /// Distance from FARM -> CONSUMER.
+  ///
+  /// This is the distance we use for the rider's
+  /// "KMs Done" dashboard.
+  final double deliveryDistanceKm;
+
   final String deliveryMode;
+
   final OrderStatus status;
+
   final String? riderId;
+
+  final String pinCode;
+
   final DateTime? createdAt;
 
   FarmOrder({
@@ -66,53 +93,190 @@ class FarmOrder {
     required this.deliveryCharge,
     required this.deliveryMode,
     required this.status,
+    this.deliveryDistanceKm = 0.0,
     this.riderId,
+    this.pinCode = '',
     this.createdAt,
   });
 
-  double get itemsSubtotal =>
-      items.fold(0, (sum, item) => sum + item.subtotal);
+  // ================================================================
+  // ORDER TOTALS
+  // ================================================================
 
-  double get totalAmount => itemsSubtotal + deliveryCharge;
+  double get itemsSubtotal {
+    return items.fold<double>(
+      0.0,
+      (sum, item) => sum + item.subtotal,
+    );
+  }
 
-  double get farmerEarnings =>
-      items.fold(0, (sum, item) => sum + item.farmerEarnings);
+  double get totalAmount {
+    return itemsSubtotal + deliveryCharge;
+  }
 
-  factory FarmOrder.fromMap(Map<String, dynamic> map, String id) {
+  double get farmerEarnings {
+    return items.fold<double>(
+      0.0,
+      (sum, item) => sum + item.farmerEarnings,
+    );
+  }
+
+  // ================================================================
+  // FROM FIREBASE
+  // ================================================================
+
+  factory FarmOrder.fromMap(
+    Map<String, dynamic> map,
+    String id,
+  ) {
+    final rawItems = map['items'];
+
+    List<OrderItem> parsedItems = [];
+
+    if (rawItems is List) {
+      parsedItems = rawItems
+          .whereType<Map>()
+          .map(
+            (item) => OrderItem.fromMap(
+              Map<String, dynamic>.from(
+                item as Map,
+              ),
+            ),
+          )
+          .toList();
+    }
+
     return FarmOrder(
       id: id,
-      farmerId: map['farmerId'] ?? '',
-      consumerId: map['consumerId'] ?? '',
-      consumerName: map['consumerName'] ?? '',
-      consumerPhone: map['consumerPhone'] ?? '',
-      items: (map['items'] as List<dynamic>? ?? [])
-          .map((i) => OrderItem.fromMap(i as Map<String, dynamic>))
-          .toList(),
-      deliveryCharge: (map['deliveryCharge'] as num?)?.toDouble() ?? 0,
-      deliveryMode: map['deliveryMode'] ?? 'platformDelivery',
+
+      farmerId: map['farmerId']?.toString() ?? '',
+
+      consumerId: map['consumerId']?.toString() ?? '',
+
+      consumerName:
+          map['consumerName']?.toString() ?? '',
+
+      consumerPhone:
+          map['consumerPhone']?.toString() ?? '',
+
+      items: parsedItems,
+
+      deliveryCharge: _safeDouble(
+        map['deliveryCharge'],
+      ),
+
+      // ============================================================
+      // FARM -> CONSUMER DISTANCE
+      //
+      // IMPORTANT:
+      // This is NOT rider -> farm distance.
+      //
+      // It is the stored distance for the actual delivery.
+      // ============================================================
+
+      deliveryDistanceKm: _safeDouble(
+        map['deliveryDistanceKm'],
+      ),
+
+      deliveryMode:
+          map['deliveryMode']?.toString() ??
+              'platformDelivery',
+
       status: OrderStatus.values.firstWhere(
-        (s) => s.name == map['status'],
+        (status) =>
+            status.name == map['status']?.toString(),
         orElse: () => OrderStatus.pending,
       ),
-      riderId: map['riderId'] as String?,
+
+      riderId: map['riderId']?.toString(),
+
+      pinCode: map['pinCode']?.toString() ?? '',
+
       createdAt: map['createdAt'] != null
-          ? DateTime.tryParse(map['createdAt'].toString())
+          ? DateTime.tryParse(
+              map['createdAt'].toString(),
+            )
           : null,
     );
   }
 
+  // ================================================================
+  // TO FIREBASE
+  // ================================================================
+
   Map<String, dynamic> toMap() {
     return {
       'farmerId': farmerId,
+
       'consumerId': consumerId,
+
       'consumerName': consumerName,
+
       'consumerPhone': consumerPhone,
-      'items': items.map((i) => i.toMap()).toList(),
+
+      'items': items
+          .map((item) => item.toMap())
+          .toList(),
+
       'deliveryCharge': deliveryCharge,
+
+      // ============================================================
+      // FARM -> CONSUMER DISTANCE
+      // ============================================================
+
+      'deliveryDistanceKm': deliveryDistanceKm,
+
       'deliveryMode': deliveryMode,
+
       'status': status.name,
+
       'riderId': riderId,
-      'createdAt': DateTime.now().toIso8601String(),
+
+      'pinCode': pinCode,
+
+      'createdAt':
+          createdAt?.toIso8601String() ??
+              DateTime.now().toIso8601String(),
     };
   }
+}
+
+// ====================================================================
+// SAFE FIREBASE NUMBER HELPERS
+// ====================================================================
+
+double _safeDouble(dynamic value) {
+  if (value == null) {
+    return 0.0;
+  }
+
+  if (value is num) {
+    return value.toDouble();
+  }
+
+  if (value is String) {
+    return double.tryParse(value) ?? 0.0;
+  }
+
+  return 0.0;
+}
+
+int _safeInt(dynamic value) {
+  if (value == null) {
+    return 0;
+  }
+
+  if (value is int) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  if (value is String) {
+    return int.tryParse(value) ?? 0;
+  }
+
+  return 0;
 }
