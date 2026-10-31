@@ -1,0 +1,6 @@
+Farmlink cleaned project
+
+- Explicitly qualified the Dart core @override annotation as @dart_core.override in project source files to work around the analyzer issue reported by this environment.
+- Fixed the default widget test to use FarmlinkApp instead of the nonexistent MyApp.
+- Updated the pubspec Dart SDK constraint to ^3.13.0 to match Flutter 3.47.2 / Dart 3.13.x.
+- Removed generated/cache directories from the ZIP.

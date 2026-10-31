@@ -32,6 +32,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
   // when one of their orders is delivered.
   StreamSubscription<List<FarmOrder>>? _orderWatcherSub;
   final Map<String, OrderStatus> _previousOrderStatus = {};
+  final Map<String, bool> _previousPaidOut = {};
   bool _firstOrderLoad = true;
 
   @override
@@ -50,26 +51,42 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
   void _handleOrderUpdates(List<FarmOrder> orders) {
     for (final order in orders) {
-      final prev = _previousOrderStatus[order.id];
+      final prevStatus = _previousOrderStatus[order.id];
+      final prevPaidOut = _previousPaidOut[order.id];
 
       if (!_firstOrderLoad &&
-          prev != null &&
-          prev != OrderStatus.delivered &&
+          prevStatus != null &&
+          prevStatus != OrderStatus.delivered &&
           order.status == OrderStatus.delivered) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text("Order for ${order.consumerName} was delivered! ✅"),
+              content: Text("Order for ${order.consumerName} was delivered! ✅"),
               backgroundColor: Colors.green,
             ),
           );
         });
       }
 
+      if (!_firstOrderLoad && prevPaidOut == false && order.isPaidOut == true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Payment submitted by Admin for ${order.consumerName}'s order.",
+              ),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        });
+      }
+
       _previousOrderStatus[order.id] = order.status;
+      _previousPaidOut[order.id] = order.isPaidOut;
     }
 
     _firstOrderLoad = false;
@@ -116,23 +133,15 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => FarmerOrdersScreen(
-                    farmerId: _farmerId,
-                  ),
+                  builder: (_) => FarmerOrdersScreen(farmerId: _farmerId),
                 ),
               );
             },
-            icon: const Icon(
-              Icons.receipt_long,
-              color: Colors.black,
-            ),
+            icon: const Icon(Icons.receipt_long, color: Colors.black),
           ),
           IconButton(
             onPressed: () => _logout(context),
-            icon: const Icon(
-              Icons.logout,
-              color: Colors.black,
-            ),
+            icon: const Icon(Icons.logout, color: Colors.black),
           ),
         ],
       ),
@@ -143,16 +152,11 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => AddEditProductScreen(
-                farmerId: _farmerId,
-              ),
+              builder: (_) => AddEditProductScreen(farmerId: _farmerId),
             ),
           );
         },
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-        ),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
 
       body: FutureBuilder<Map<String, dynamic>?>(
@@ -168,13 +172,13 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
               final orders = orderSnapshot.data ?? [];
 
               final deliveredOrders = orders
-                  .where(
-                    (o) => o.status == OrderStatus.delivered,
-                  )
+                  .where((o) => o.status == OrderStatus.delivered)
                   .toList();
 
-              final uniqueClients =
-                  deliveredOrders.map((o) => o.consumerId).toSet().length;
+              final uniqueClients = deliveredOrders
+                  .map((o) => o.consumerId)
+                  .toSet()
+                  .length;
 
               final totalSold = deliveredOrders.fold<double>(
                 0,
@@ -184,11 +188,8 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
               return StreamBuilder<List<Product>>(
                 stream: _productsStream,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
                   }
 
                   final allProducts = snapshot.data ?? [];
@@ -199,26 +200,24 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                     (sum, p) => sum + p.stockQuantity,
                   );
 
-                  final activeListings =
-                      allProducts.where((p) => p.isActive).length;
+                  final activeListings = allProducts
+                      .where((p) => p.isActive)
+                      .length;
 
                   final inventoryValue = allProducts.fold<double>(
                     0,
-                    (sum, p) =>
-                        sum + (p.farmerPrice * p.stockQuantity),
+                    (sum, p) => sum + (p.farmerPrice * p.stockQuantity),
                   );
 
                   final filteredProducts = _searchQuery.isEmpty
                       ? allProducts
                       : allProducts
-                          .where(
-                            (p) => p.name
-                                .toLowerCase()
-                                .contains(
-                                  _searchQuery.toLowerCase(),
-                                ),
-                          )
-                          .toList();
+                            .where(
+                              (p) => p.name.toLowerCase().contains(
+                                _searchQuery.toLowerCase(),
+                              ),
+                            )
+                            .toList();
 
                   final totalPages = filteredProducts.isEmpty
                       ? 1
@@ -235,13 +234,11 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                   final startIndex = _currentPage * _perPage;
 
                   final endIndex =
-                      (startIndex + _perPage) >
-                              filteredProducts.length
-                          ? filteredProducts.length
-                          : startIndex + _perPage;
+                      (startIndex + _perPage) > filteredProducts.length
+                      ? filteredProducts.length
+                      : startIndex + _perPage;
 
-                  final pageProducts =
-                      filteredProducts.sublist(
+                  final pageProducts = filteredProducts.sublist(
                     startIndex,
                     endIndex,
                   );
@@ -257,8 +254,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               farmerName.isNotEmpty
@@ -284,8 +280,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                             const SizedBox(height: 20),
 
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 _StatBlock(
                                   label: "Products",
@@ -310,24 +305,19 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
                             Container(
                               width: double.infinity,
-                              padding:
-                                  const EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 vertical: 12,
                                 horizontal: 16,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(
-                                  alpha: 0.15,
-                                ),
-                                borderRadius:
-                                    BorderRadius.circular(12),
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: Column(
                                 children: [
                                   Row(
                                     mainAxisAlignment:
-                                        MainAxisAlignment
-                                            .spaceBetween,
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       const Text(
                                         "Total Sold",
@@ -341,8 +331,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
-                                          fontWeight:
-                                              FontWeight.bold,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ],
@@ -352,8 +341,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
                                   Row(
                                     mainAxisAlignment:
-                                        MainAxisAlignment
-                                            .spaceBetween,
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       const Text(
                                         "Potential Inventory Value",
@@ -367,8 +355,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
-                                          fontWeight:
-                                              FontWeight.bold,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ],
@@ -402,28 +389,23 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                         },
                         decoration: InputDecoration(
                           hintText: "Search your products...",
-                          prefixIcon:
-                              const Icon(Icons.search),
-                          suffixIcon:
-                              _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon:
-                                          const Icon(Icons.close),
-                                      onPressed: () {
-                                        setState(() {
-                                          _searchController
-                                              .clear();
-                                          _searchQuery = '';
-                                          _currentPage = 0;
-                                        });
-                                      },
-                                    )
-                                  : null,
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                      _currentPage = 0;
+                                    });
+                                  },
+                                )
+                              : null,
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -433,10 +415,7 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
                       if (filteredProducts.isEmpty)
                         Padding(
-                          padding:
-                              const EdgeInsets.symmetric(
-                            vertical: 40,
-                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 40),
                           child: Center(
                             child: Text(
                               allProducts.isEmpty
@@ -453,66 +432,43 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
                       else ...[
                         ...pageProducts.map(
                           (product) => Card(
-                            margin:
-                                const EdgeInsets.only(
-                              bottom: 12,
-                            ),
+                            margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
-                              contentPadding:
-                                  const EdgeInsets.all(12),
+                              contentPadding: const EdgeInsets.all(12),
                               leading: CircleAvatar(
                                 radius: 26,
-                                backgroundColor:
-                                    Colors.green.withValues(
+                                backgroundColor: Colors.green.withValues(
                                   alpha: 0.15,
                                 ),
-                                backgroundImage:
-                                    product.imageUrl != null
-                                        ? NetworkImage(
-                                            product.imageUrl!,
-                                          )
-                                        : null,
-                                child:
-                                    product.imageUrl == null
-                                        ? const Icon(
-                                            Icons.eco,
-                                            color:
-                                                Colors.green,
-                                          )
-                                        : null,
+                                backgroundImage: product.imageUrl != null
+                                    ? NetworkImage(product.imageUrl!)
+                                    : null,
+                                child: product.imageUrl == null
+                                    ? const Icon(Icons.eco, color: Colors.green)
+                                    : null,
                               ),
                               title: Text(
                                 product.name,
                                 style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.bold,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                               subtitle: Text(
                                 product.stockQuantity <= 0
                                     ? "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · OUT OF STOCK"
                                     : "KES ${product.farmerPrice.toStringAsFixed(0)} / ${product.unit} · Stock: ${product.stockQuantity}",
-                                style:
-                                    product.stockQuantity <=
-                                            0
-                                        ? const TextStyle(
-                                            color: Colors.red,
-                                          )
-                                        : null,
+                                style: product.stockQuantity <= 0
+                                    ? const TextStyle(color: Colors.red)
+                                    : null,
                               ),
-                              trailing:
-                                  const Icon(
-                                Icons.chevron_right,
-                              ),
+                              trailing: const Icon(Icons.chevron_right),
                               onTap: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        AddEditProductScreen(
+                                    builder: (_) => AddEditProductScreen(
                                       farmerId: _farmerId,
-                                      existingProduct:
-                                          product,
+                                      existingProduct: product,
                                     ),
                                   ),
                                 );
@@ -525,42 +481,27 @@ class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
 
                         if (totalPages > 1)
                           Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               IconButton(
-                                onPressed:
-                                    _currentPage > 0
-                                        ? () => setState(
-                                              () =>
-                                                  _currentPage--,
-                                            )
-                                        : null,
-                                icon: const Icon(
-                                  Icons.chevron_left,
-                                ),
+                                onPressed: _currentPage > 0
+                                    ? () => setState(() => _currentPage--)
+                                    : null,
+                                icon: const Icon(Icons.chevron_left),
                               ),
 
                               Text(
                                 "Page ${_currentPage + 1} of $totalPages",
                                 style: const TextStyle(
-                                  fontWeight:
-                                      FontWeight.w500,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
 
                               IconButton(
-                                onPressed:
-                                    _currentPage <
-                                            totalPages - 1
-                                        ? () => setState(
-                                              () =>
-                                                  _currentPage++,
-                                            )
-                                        : null,
-                                icon: const Icon(
-                                  Icons.chevron_right,
-                                ),
+                                onPressed: _currentPage < totalPages - 1
+                                    ? () => setState(() => _currentPage++)
+                                    : null,
+                                icon: const Icon(Icons.chevron_right),
                               ),
                             ],
                           ),
@@ -581,10 +522,7 @@ class _StatBlock extends StatelessWidget {
   final String label;
   final String value;
 
-  const _StatBlock({
-    required this.label,
-    required this.value,
-  });
+  const _StatBlock({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -601,10 +539,7 @@ class _StatBlock extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
         ),
       ],
     );

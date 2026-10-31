@@ -11,6 +11,7 @@ import '../../services/location_service.dart';
 import '../../models/order_model.dart';
 import '../auth/login_screen.dart';
 import 'my_deliveries_screen.dart';
+import '../../core/utils/currency_formatter.dart';
 
 class RiderHomeScreen extends StatefulWidget {
   const RiderHomeScreen({super.key});
@@ -110,7 +111,26 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       _accepting = true;
     });
 
-    try {
+        try {
+      final hasActive =
+          await OrderService().riderHasActiveDelivery(riderId);
+
+      if (hasActive) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Finish your current delivery before accepting a new one.",
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        setState(() {
+          _accepting = false;
+        });
+        return;
+      }
+
       final success =
           await OrderService().acceptOrder(
         orderId,
@@ -297,8 +317,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           _DashboardCard(
             title: "Total Earnings",
 
-            value:
-                "KES ${totalEarnings.toStringAsFixed(0)}",
+              value: 
+                        CurrencyFormatter.format(totalEarnings),
 
             subtitle:
                 "From completed deliveries",
@@ -782,12 +802,25 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                                     return -1;
                                   }
 
-                                  return aDistance
+                                                                    return aDistance
                                       .compareTo(
                                     bDistance,
                                   );
                                 },
                               );
+
+                              // =================================================
+                              // FILTER: ONLY SHOW JOBS WITHIN MAX RADIUS
+                              // =================================================
+
+                              final filteredCards = cards
+                                  .where(
+                                    (card) =>
+                                        card.distanceKm == null ||
+                                        card.distanceKm! <=
+                                            AppConfig.maxJobDistanceKm,
+                                  )
+                                  .toList();
 
                               // =================================================
                               // AVAILABLE JOB LIST
@@ -796,15 +829,15 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                               return ListView
                                   .builder(
                                 itemCount:
-                                    cards.length,
+                                    filteredCards.length,
 
-                                itemBuilder:
+                                                                itemBuilder:
                                     (
                                   context,
                                   index,
                                 ) {
                                   final card =
-                                      cards[index];
+                                      filteredCards[index];
 
                                   final riderEarning =
                                       card.order
@@ -926,7 +959,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                                               ),
 
                                               Text(
-                                                "KES ${riderEarning.toStringAsFixed(0)}",
+                                                CurrencyFormatter.format(riderEarning),
 
                                                 style:
                                                     const TextStyle(
